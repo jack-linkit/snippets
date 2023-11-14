@@ -1,0 +1,171 @@
+{
+	// Place your snippets for sql here. Each snippet is defined under a snippet name and has a prefix, body and 
+	// description. The prefix is what is used to trigger the snippet and the body will be expanded and inserted. Possible variables are:
+	// $1, $2 for tab stops, $0 for the final cursor position, and ${1:label}, ${2:another} for placeholders. Placeholders with the 
+	// same ids are connected.
+	// Example:
+	// "Print to console": {
+	// 	"prefix": "log",
+	// 	"body": [
+	// 		"console.log('$1');",
+	// 		"$2"
+	// 	],
+	// 	"description": "Log output to console"
+	// }
+	
+	"VTByDistrict": {
+		"prefix": "VTByDistrict",
+		"body": [
+			"SELECT DISTINCT VirtualTest.*",
+			"FROM TestResult",
+			"\tJOIN VirtualTest ON VirtualTest.VirtualTestID = TestResult.VirtualTestID",
+			"WHERE TestResult.DistrictID = $1", 
+			"AND VirtualTest.[Name] LIKE '%$2%'",
+			"ORDER BY 1 DESC"
+		],
+		"description": "Get VirtualTests from a district with a particular name"
+	},
+	"BeginRollback": {
+		"prefix": "BeginRollback", 
+		"body": [
+			"BEGIN TRAN\n", 
+			"\t$1\n",
+			"ROLLBACK TRAN"
+		],
+		"description": "Enclose a query in a transaction that will be rolled back"
+	},
+	
+
+
+
+
+
+	// Longer Prewritten queries
+	"TestResultDelete": {
+		"prefix": "TestResultDelete",
+		"body": [
+			"------------------------------------------------------------------------",
+			"---------- Created by Dan Shapiro -- Last Updated: 2023-10-17 ----------",
+			"------------------------------------------------------------------------",
+			"",
+			"set nocount on",
+			"",
+			"declare @r int, -- used to determine # rows deleted, exit loop once 0",
+			"@delay int, -- delay between deletes",
+			"@batch_size int -- number of records deleted per iteraction",
+			"",
+			"-- set global params",
+			"set @delay = 1",
+			"set @batch_size = 30000",
+			"",
+			"",
+			"-- store the testresult ids into a temp table for further reference by delete queries",
+			"declare @tmpTestResultIDs table(",
+			"    [tr_id] int not null",
+			")",
+			"",
+			"",
+			"------------------------------------------------------------------------",
+			"---------- vvvvvvvvv FIND THE TESTRESULTS TO DELETE vvvvvvvvv ----------",
+			"------------------------------------------------------------------------",
+			"",
+			"-- populate the temp table",
+			"",
+			"",
+			"insert into @tmpTestResultIDs",
+			"select TestResultID",
+			"from TestResult with (nolock)",
+			"-- change the select statement as needed",
+			"\tinner join VirtualTest with (nolock) on VirtualTest.VirtualTestID = TestResult.VirtualTestID",
+			"\tinner join District with (nolock) on District.DistrictID = TestResult.DistrictID",
+			"\tinner join DataSetCategory with (nolock) on DataSetCategory.DataSetCategoryID = VirtualTest.DataSetCategoryID",
+			"where District.DistrictID = $1",
+			"and VirtualTest.DataSetCategoryID = $2",
+			"and TestResult.ResultDate between '$3' and '$4'",
+			"and VirtualTest.Name like '%$5%'",
+			"---------------------------------",
+			"order by TestResultID$0",
+			"",
+			"",
+			"------------------------------------------------------------------------",
+			"---------- ^^^^^^^^^ FIND THE TESTRESULTS TO DELETE ^^^^^^^^^ ----------",
+			"------------------------------------------------------------------------",
+			"",
+			"",
+			"----- DELETE TESTRESULTSUBSCORE",
+			"set @r = 1",
+			"",
+			"while @r > 0",
+			"begin",
+			"",
+			"    delete top (@batch_size) TestResultSubScore",
+			"    where TestResultScoreID in (",
+			"        select TestResultScoreID",
+			"        from TestResultScore with (nolock)",
+			"        where TestResultID in (",
+			"            select tr_id from @tmpTestResultIDs",
+			"        )",
+			"    )",
+			"",
+			"    set @r = @@ROWCOUNT",
+			"",
+			"    waitfor delay @delay",
+			"end",
+			"",
+			"",
+			"",
+			"----- DELETE TESTRESULTSCORE",
+			"set @r = 1",
+			"",
+			"while @r > 0",
+			"begin",
+			"",
+			"    delete top (@batch_size) TestResultScore",
+			"    where TestResultID in (",
+			"        select tr_id from @tmpTestResultIDs",
+			"    )",
+			"",
+			"    set @r = @@ROWCOUNT",
+			"",
+			"    waitfor delay @delay",
+			"end",
+			"",
+			"",
+			"",
+			"----- DELETE TESTRESULTPROGRAM",
+			"set @r = 1",
+			"",
+			"while @r > 0",
+			"begin",
+			"",
+			"    delete top (@batch_size) TestResultProgram",
+			"    where TestResultID in (",
+			"        select tr_id from @tmpTestResultIDs",
+			"    )",
+			"",
+			"    set @r = @@ROWCOUNT",
+			"",
+			"    waitfor delay @delay",
+			"end",
+			"",
+			"",
+			"",
+			"----- DELETE TESTRESULT",
+			"set @r = 1",
+			"",
+			"while @r > 0",
+			"begin",
+			"",
+			"    delete top (@batch_size) TestResult",
+			"    where TestResultID in (",
+			"        select tr_id from @tmpTestResultIDs",
+			"    )",
+			"",
+			"    set @r = @@ROWCOUNT",
+			"",
+			"    waitfor delay @delay",
+			"end"
+		],
+		"description": "Delete test results"
+	}
+}
